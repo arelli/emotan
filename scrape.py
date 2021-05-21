@@ -10,15 +10,15 @@ from selenium.common import exceptions
 from selenium.webdriver.common.action_chains import ActionChains  # https://stackoverflow.com/questions/61693879/python-disable-images-in-selenium-ms-edge-chromium-webdriver
 
 
-import text2emotion as te
-import re
-import sys
-import nltk
-nltk.download('words')
+import text2emotion as te  # text to emotion toolkit
+import re  # regural expressions
+import sys  # to execute system commands
+import nltk   # natural language toolkit
+nltk.download('words')  # update the natural language toolkit files
 
 
-email = "---"
-password = "---"
+email = "---"  # your login username/phone/email
+password = "---"  # your password
 
 
 def create_webdriver_instance():
@@ -59,8 +59,6 @@ def find_search_input_and_enter_criteria(search_term, driver):
     search_input = driver.find_element_by_xpath(xpath_search)
     search_input.send_keys(search_term)
     search_input.send_keys(Keys.RETURN)
-    # sleep(2)
-    # driver.find_element_by_link_text('Advanced Search').click()
     return True
 
 
@@ -216,13 +214,6 @@ def main(username, password, search_term, filepath, page_sort='Latest'):
                 save_tweet_data_to_csv(tweet, filepath)
                 tweet_str = str(tweet)
                 tweet_text = tweet_str.split(",")[3]
-                # x = tweet_text
-                # x = ''.join([i for i in x if not i.isdigit()])
-                # x = ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)"," ",x).split())  # clean the tweet
-                # x = " ".join(w for w in nltk.wordpunct_tokenize(x) \
-                #          if w.lower() in words or not w.isalpha())
-                # x =  ' '.join( [w for w in x.split() if len(w)>1] )  # remove single letter words
-                # tweet_text = x
                 tweet_emotion = te.get_emotion(tweet_text)
                 print("\n\n\n\n\n\n\n\n\n\n\n\n\n")
                 print( "Tweet no." + str(number_of_tweets)+ " text:" + str(tweet_text)[0:100] + "...")
@@ -243,8 +234,5 @@ if __name__ == '__main__':
     pwd = password
     term = 'police brutality'
     path = term + '.csv'
-
-
-
 
     main(usr, pwd, term, path)
