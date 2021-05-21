@@ -1,32 +1,10 @@
-""" IMPROVEMENTS:
-    - Improved error handling so that tweets are not rejected if certain fields are null, etc...
-    - Leveraged the `WebDriverAwait` class to enable better detection of desired load states
-    - Each record is saved while scraping instead of all at the end; minimizing data loss for a failed session.
-    NOTES AND THINGS TO THINK ABOUT:
-    - Twitter will block you from logging (temporary) in via the webdriver if you log in too many times in a single day.
-    - The `scroll_down_page` function has an argument for `num_seconds_to_load` that represents the num of
-    seconds that the program will wait until attempting to scroll again. I'm currently making 5 attempts with
-    a pause between. You could also increase the number of max attempts and decrease the `num_seconds_to_load`.
-    This could possibly speed up the scraping as you would be more likely to get to a successfull scroll down
-    quicker.
-    -  The `collect_all_tweets_from_current_view` function has a `lookback_limit` argument that controls how
-    many tweets are processed from each scroll. I've written more about this in the function docstring.
-    - I've implemented `WebDriverWait` in several sections of this updated code. I think this is a much
-    better solution than a hard-coded `sleep` call because it will only timeout after a certain period of
-    time if specific conditions are not met. There are many other sections of this code that could be
-    improved, I'm sure, by leveraging this class.
-    - Feel free to replace the `save_tweet_data_to_csv` function with any other `io` option you want, such
-    as a database save via `pyodbc`, `sqlite3`, or whatever you want really.
-    - I encourage you to explore the "Advanced Search" functionality. Try adding your criteria and see how the url
-     is built. You can then leverage this to make your searches more customized... with date ranges, special keywords,
-     etc...  --> https://twitter.com/search-advanced?
-"""
+# with lots of code from israel dryer!
 import csv
 from time import sleep
 from msedge.selenium_tools import Edge, EdgeOptions
-from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.keys import Keys  # to simulate key presses
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait  # to wait for a page to load before accesing its elements
 from selenium.webdriver.support import expected_conditions
 from selenium.common import exceptions
 from selenium.webdriver.common.action_chains import ActionChains  # https://stackoverflow.com/questions/61693879/python-disable-images-in-selenium-ms-edge-chromium-webdriver
@@ -47,7 +25,7 @@ def create_webdriver_instance():
     options = EdgeOptions()
     options.use_chromium = True
     prefs = {"profile.managed_default_content_settings.images": 2}  # to not load images
-    options.add_experimental_option("prefs", prefs)  # to not load images
+    options.add_experimental_option("prefs", prefs)  # to not load images (faster loading?)
     driver = Edge(options=options)
     return driver
 
@@ -140,7 +118,7 @@ def collect_all_tweets_from_current_view(driver, lookback_limit=25):
     else:
         return page_cards[-lookback_limit:]
 
-
+words = set(nltk.corpus.words.words())  #to let only english words in the text
 def extract_data_from_current_tweet_card(card):
     try:
         user = card.find_element_by_xpath('.//span').text
@@ -165,24 +143,33 @@ def extract_data_from_current_tweet_card(card):
     try:
         _comment = card.find_element_by_xpath('.//div[2]/div[2]/div[1]').text
     except exceptions.NoSuchElementException:
-        _comment = ""
+        _comment = "0"
     try:
         _responding = card.find_element_by_xpath('.//div[2]/div[2]/div[2]').text
     except exceptions.NoSuchElementException:
-        _responding = ""
+        _responding = "0"
     tweet_text = _comment + _responding
     try:
         reply_count = card.find_element_by_xpath('.//div[@data-testid="reply"]').text
     except exceptions.NoSuchElementException:
-        reply_count = ""
+        reply_count = "0"
     try:
         retweet_count = card.find_element_by_xpath('.//div[@data-testid="retweet"]').text
     except exceptions.NoSuchElementException:
-        retweet_count = ""
+        retweet_count = "0"
     try:
         like_count = card.find_element_by_xpath('.//div[@data-testid="like"]').text
     except exceptions.NoSuchElementException:
-        like_count = ""
+        like_count = "0"
+
+    x = tweet_text
+    x = tweet_text
+    x = ''.join([i for i in x if not i.isdigit()])
+    x = ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)", " ", x).split())  # clean the tweet
+    x = " ".join(w for w in nltk.wordpunct_tokenize(x) \
+                 if w.lower() in words or not w.isalpha())
+    x = ' '.join([w for w in x.split() if len(w) > 1])  # remove single letter words
+    tweet_text = x
 
     tweet = (user, handle, postdate, tweet_text, reply_count, retweet_count, like_count)
     return tweet
@@ -213,7 +200,6 @@ def main(username, password, search_term, filepath, page_sort='Latest'):
 
     change_page_sort(page_sort, driver)
 
-    words = set(nltk.corpus.words.words())
 
     while not end_of_scroll_region:
         cards = collect_all_tweets_from_current_view(driver)
@@ -230,13 +216,13 @@ def main(username, password, search_term, filepath, page_sort='Latest'):
                 save_tweet_data_to_csv(tweet, filepath)
                 tweet_str = str(tweet)
                 tweet_text = tweet_str.split(",")[3]
-                x = tweet_text
-                x = ''.join([i for i in x if not i.isdigit()])
-                x = ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)"," ",x).split())  # clean the tweet
-                x = " ".join(w for w in nltk.wordpunct_tokenize(x) \
-                         if w.lower() in words or not w.isalpha())
-                x =  ' '.join( [w for w in x.split() if len(w)>1] )  # remove single letter words
-                tweet_text = x
+                # x = tweet_text
+                # x = ''.join([i for i in x if not i.isdigit()])
+                # x = ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)"," ",x).split())  # clean the tweet
+                # x = " ".join(w for w in nltk.wordpunct_tokenize(x) \
+                #          if w.lower() in words or not w.isalpha())
+                # x =  ' '.join( [w for w in x.split() if len(w)>1] )  # remove single letter words
+                # tweet_text = x
                 tweet_emotion = te.get_emotion(tweet_text)
                 print("\n\n\n\n\n\n\n\n\n\n\n\n\n")
                 print( "Tweet no." + str(number_of_tweets)+ " text:" + str(tweet_text)[0:100] + "...")
