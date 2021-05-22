@@ -14,11 +14,11 @@ import text2emotion as te  # text to emotion toolkit
 import re  # regural expressions
 import sys  # to execute system commands
 import nltk   # natural language toolkit
+import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime
 nltk.download('words')  # update the natural language toolkit files
 
-
-email = "---"  # your login username/phone/email
-password = "---"  # your password
 
 
 def create_webdriver_instance():
@@ -79,17 +79,9 @@ def scroll_down_page(driver, last_position, num_seconds_to_load=0.5, scroll_atte
     and last positions as an indicator. If the current and last positions are the same after `max_attempts`
     the assumption is that the end of the scroll region has been reached and the `end_of_scroll_region`
     flag will be returned as `True`"""
-    end_of_scroll_region = False
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-    sleep(num_seconds_to_load)
-    curr_position = driver.execute_script("return window.pageYOffset;")
-    if curr_position == last_position:
-        if scroll_attempt < max_attempts:
-            end_of_scroll_region = True
-        else:
-            scroll_down_page(last_position, curr_position, scroll_attempt + 1)
-    last_position = curr_position
-    return last_position, end_of_scroll_region
+    driver.refresh()
+    return
+
 
 
 def save_tweet_data_to_csv(records, filepath, mode='a+'):
@@ -141,31 +133,38 @@ def extract_data_from_current_tweet_card(card):
     try:
         _comment = card.find_element_by_xpath('.//div[2]/div[2]/div[1]').text
     except exceptions.NoSuchElementException:
-        _comment = "0"
+        _comment = "error"
     try:
         _responding = card.find_element_by_xpath('.//div[2]/div[2]/div[2]').text
     except exceptions.NoSuchElementException:
-        _responding = "0"
+        _responding = "error"
     tweet_text = _comment + _responding
     try:
         reply_count = card.find_element_by_xpath('.//div[@data-testid="reply"]').text
+        if reply_count == " " or reply_count == "":
+            reply_count = "0"
     except exceptions.NoSuchElementException:
-        reply_count = "0"
+        reply_count = "error"
     try:
         retweet_count = card.find_element_by_xpath('.//div[@data-testid="retweet"]').text
+        if retweet_count == " " or retweet_count == "":
+            retweet_count = "0"
+
     except exceptions.NoSuchElementException:
-        retweet_count = "0"
+        retweet_count = "error"
     try:
         like_count = card.find_element_by_xpath('.//div[@data-testid="like"]').text
+        if like_count == " " or like_count == "":
+            like_count = "0"
     except exceptions.NoSuchElementException:
-        like_count = "0"
+        like_count = "error"
 
     x = tweet_text
     x = tweet_text
     x = ''.join([i for i in x if not i.isdigit()])
     x = ' '.join(re.sub("(@[A-Za-z0-9]+)|([^0-9A-Za-z \t])|(\w+:\/\/\S+)", " ", x).split())  # clean the tweet
-    x = " ".join(w for w in nltk.wordpunct_tokenize(x) \
-                 if w.lower() in words or not w.isalpha())
+    # x = " ".join(w for w in nltk.wordpunct_tokenize(x) \
+    #              if w.lower() in words or not w.isalpha())
     x = ' '.join([w for w in x.split() if len(w) > 1])  # remove single letter words
     tweet_text = x
 
@@ -176,11 +175,21 @@ def extract_data_from_current_tweet_card(card):
 
 def main(username, password, search_term, filepath, page_sort='Latest'):
     total_happiness = 0
+    happiness = []
     total_angryness = 0
+    anger = []
     total_suprsiseness = 0
+    surprise = []
     total_saddness = 0
+    sadness = []
     total_fearness = 0
+    fear = []
+    time = []
+
+    plt.axis([0, 10, 0, 1])
+
     number_of_tweets = 1
+    total_tweets = 1
 
     save_tweet_data_to_csv(None, filepath, 'w')  # create file for saving records
     last_position = None
@@ -200,6 +209,8 @@ def main(username, password, search_term, filepath, page_sort='Latest'):
 
 
     while not end_of_scroll_region:
+        scroll_down_page(driver, last_position)
+        sleep(5)
         cards = collect_all_tweets_from_current_view(driver)
         for card in cards:
             try:
@@ -215,24 +226,52 @@ def main(username, password, search_term, filepath, page_sort='Latest'):
                 tweet_str = str(tweet)
                 tweet_text = tweet_str.split(",")[3]
                 tweet_emotion = te.get_emotion(tweet_text)
-                print("\n\n\n\n\n\n\n\n\n\n\n\n\n")
-                print( "Tweet no." + str(number_of_tweets)+ " text:" + str(tweet_text)[0:100] + "...")
-                total_happiness += float(tweet_emotion["Happy"]) /number_of_tweets
-                total_angryness += float(tweet_emotion["Angry"]) /number_of_tweets
-                total_suprsiseness += float(tweet_emotion["Surprise"]) /number_of_tweets
-                total_saddness += float(tweet_emotion["Sad"]) /number_of_tweets
-                total_fearness += float(tweet_emotion["Fear"]) /number_of_tweets
-                print("happiness:" + str(total_happiness) + "," + "angry:" + str(total_angryness) + "," + "surprise:" + str(total_suprsiseness) + "," + "sad:" + str(total_saddness) + "," + "fearness:" + str(total_fearness))
-                number_of_tweets += 1
 
-        last_position, end_of_scroll_region = scroll_down_page(driver, last_position)
+                print( "Tweet no." + str(total_tweets)+ " text:" + str(tweet_text)[0:100] + "...")
+
+                total_happiness += float(tweet_emotion["Happy"]/20)
+                total_angryness += float(tweet_emotion["Angry"]/20)
+                total_suprsiseness += float(tweet_emotion["Surprise"]/20)
+                total_saddness += float(tweet_emotion["Sad"]/20)
+                total_fearness += float(tweet_emotion["Fear"]/20)
+
+                if number_of_tweets == 20:
+                    happiness.append(total_happiness)
+                    anger.append(total_angryness)
+                    surprise.append(total_suprsiseness)
+                    sadness.append(total_saddness)
+                    fear.append(total_fearness)
+                    total_happiness =0
+                    total_angryness =0
+                    total_suprsiseness =0
+                    total_saddness =0
+                    total_fearness = 0
+                    now = datetime.now()
+                    time.append(now.strftime("%H:%M:%S"))
+                    number_of_tweets = 0
+                    #plt.ion()
+                    plt.plot(time, happiness, 'r-' )
+                    plt.plot(time, anger, 'y-')
+                    plt.plot(time, surprise, 'm-')
+                    plt.plot(time, sadness, 'g-')
+                    plt.plot(time, fear, 'b-')
+                    plt.gcf().autofmt_xdate()
+                    plt.title('Emotion Chart over time')
+                    plt.savefig('last_chart.png', bbox_inches='tight')
+                    #pld.draw()	
+                    #plt.show(block=False)
+                    #plt.pause(0.05)
+
+                number_of_tweets += 1
+                total_tweets += 1
+
     driver.quit()
 
 
 if __name__ == '__main__':
-    usr = email
-    pwd = password
-    term = 'police brutality'
+    usr = '---'  # sys.argv[1] # email
+    pwd ='---'  # sys.argv[2]  # password
+    term = 'some search term'  # sys.argv[3]  # 'stellar coin xlm'
     path = term + '.csv'
 
     main(usr, pwd, term, path)
