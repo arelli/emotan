@@ -13,11 +13,11 @@ from selenium.webdriver.common.action_chains import ActionChains  # https://stac
 import text2emotion as te  # text to emotion toolkit
 import re  # regural expressions
 import sys  # to execute system commands
-import nltk   # natural language toolkit
+#import nltk   # natural language toolkit
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
-nltk.download('words')  # update the natural language toolkit files
+#nltk.download('words')  # update the natural language toolkit files
 
 
 
@@ -26,7 +26,10 @@ def create_webdriver_instance():
     options.use_chromium = True
     prefs = {"profile.managed_default_content_settings.images": 2}  # to not load images
     options.add_experimental_option("prefs", prefs)  # to not load images (faster loading?)
-    driver = Edge(options=options)
+    #options.add_argument('--headless')  # headless means that it doesnt show the brower windoe(DISABLE THIS TO DEBUG!)
+    #options.add_argument('--disable-gpu')
+    driver = Edge(options=options) 
+    #driver.minimize_window()
     return driver
 
 
@@ -108,7 +111,7 @@ def collect_all_tweets_from_current_view(driver, lookback_limit=25):
     else:
         return page_cards[-lookback_limit:]
 
-words = set(nltk.corpus.words.words())  #to let only english words in the text
+#words = set(nltk.corpus.words.words())  #to let only english words in the text
 def extract_data_from_current_tweet_card(card):
     try:
         user = card.find_element_by_xpath('.//span').text
@@ -207,6 +210,9 @@ def main(username, password, search_term, filepath, page_sort='Latest'):
 
     change_page_sort(page_sort, driver)
 
+    start_date = datetime.now()
+    start_date = start_date.strftime("%d-%m-%Y-%H-%M-%S")
+
 
     while not end_of_scroll_region:
         scroll_down_page(driver, last_position)
@@ -229,38 +235,37 @@ def main(username, password, search_term, filepath, page_sort='Latest'):
 
                 print( "Tweet no." + str(total_tweets)+ " text:" + str(tweet_text)[0:100] + "...")
 
-                total_happiness += float(tweet_emotion["Happy"]/20)
-                total_angryness += float(tweet_emotion["Angry"]/20)
-                total_suprsiseness += float(tweet_emotion["Surprise"]/20)
-                total_saddness += float(tweet_emotion["Sad"]/20)
-                total_fearness += float(tweet_emotion["Fear"]/20)
+                total_happiness += float(tweet_emotion["Happy"])
+                total_angryness += float(tweet_emotion["Angry"])
+                total_suprsiseness += float(tweet_emotion["Surprise"])
+                total_saddness += float(tweet_emotion["Sad"])
+                total_fearness += float(tweet_emotion["Fear"])
 
-                if number_of_tweets == 20:
-                    happiness.append(total_happiness)
-                    anger.append(total_angryness)
-                    surprise.append(total_suprsiseness)
-                    sadness.append(total_saddness)
-                    fear.append(total_fearness)
+                if number_of_tweets >= 20:
+                    happiness.append(total_happiness/20)
+                    anger.append(total_angryness/20)
+                    surprise.append(total_suprsiseness/20)
+                    sadness.append(total_saddness/20)
+                    fear.append(total_fearness/20)
+                    now = datetime.now()
+                    time.append(now.strftime("%H:%M:%S"))
                     total_happiness =0
                     total_angryness =0
                     total_suprsiseness =0
                     total_saddness =0
                     total_fearness = 0
-                    now = datetime.now()
-                    time.append(now.strftime("%H:%M:%S"))
                     number_of_tweets = 0
-                    #plt.ion()
-                    plt.plot(time, happiness, 'r-' )
-                    plt.plot(time, anger, 'y-')
-                    plt.plot(time, surprise, 'm-')
-                    plt.plot(time, sadness, 'g-')
-                    plt.plot(time, fear, 'b-')
+                    plt.plot(time, happiness, 'r-',c='red', label='happiness' )
+                    plt.plot(time, anger, 'y-',c='yellow', label='anger')
+                    plt.plot(time, surprise, 'm-',c='magenta', label='surprise')
+                    plt.plot(time, sadness, 'g-',c='green', label='sadness')
+                    plt.plot(time, fear, 'b-',c='blue', label='fear')
                     plt.gcf().autofmt_xdate()
-                    plt.title('Emotion Chart over time')
-                    plt.savefig('last_chart.png', bbox_inches='tight')
-                    #pld.draw()	
-                    #plt.show(block=False)
-                    #plt.pause(0.05)
+                    plt.title('Emotion chart over time on twitter posts, ' + str(start_date))
+                    plt.grid(True)
+                    plt.legend()
+                    plt.savefig(str('last_chart-' + str(start_date) +'.png').replace(':','-'), bbox_inches='tight')
+                    plt.close()
 
                 number_of_tweets += 1
                 total_tweets += 1
@@ -271,7 +276,7 @@ def main(username, password, search_term, filepath, page_sort='Latest'):
 if __name__ == '__main__':
     usr = '---'  # sys.argv[1] # email
     pwd ='---'  # sys.argv[2]  # password
-    term = 'some search term'  # sys.argv[3]  # 'stellar coin xlm'
+    term = 'search term'  # sys.argv[3]  # 'stellar coin xlm'
     path = term + '.csv'
 
     main(usr, pwd, term, path)
